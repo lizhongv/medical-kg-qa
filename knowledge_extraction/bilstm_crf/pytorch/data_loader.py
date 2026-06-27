@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from collections import Counter
+
 import torch
 from torch.utils.data import Dataset
 
@@ -25,7 +27,6 @@ def read_bio(path):
 
 
 def build_vocab(sentences, min_freq=1):
-    from collections import Counter
     c = Counter()
     for chars, _ in sentences:
         c.update(chars)
