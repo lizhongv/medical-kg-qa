@@ -6,6 +6,7 @@ import json
 class IntentModel:
     def __init__(self, ckpt_dir=None, base=None):
         self.model = self.tokenizer = self.id2name = None
+        self._torch = None
         self._ok = False
         weights = os.path.join(ckpt_dir, "best_model.pt") if ckpt_dir else None
         if weights and os.path.exists(weights):
@@ -14,7 +15,8 @@ class IntentModel:
                 from transformers import AutoTokenizer
                 # 直接内联最小推理:加载 state_dict 到等价结构
                 self._torch = torch
-                self.id2name = json.load(open(os.path.join(ckpt_dir, "label2id.json"), encoding="utf-8"))
+                with open(os.path.join(ckpt_dir, "label2id.json"), encoding="utf-8") as f:
+                    self.id2name = json.load(f)
                 self.tokenizer = AutoTokenizer.from_pretrained(base or "hfl/rbt3")
                 self.model = _load_intent_model(base or "hfl/rbt3", weights, len(self.id2name), torch)
                 self.model.eval()
@@ -61,5 +63,5 @@ def _load_intent_model(base, weights, num_labels, torch):
             return self.out(torch.relu(self.dense(torch.cat([cls, cnn], dim=1))))
 
     net = IntentNet()
-    net.load_state_dict(torch.load(weights, map_location="cpu"))
+    net.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True))
     return net
