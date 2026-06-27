@@ -10,6 +10,7 @@ from app.llm import understand as _understand_mod
 from app.llm.generate import generate as _generate
 from app.kg.text2cypher import text_to_cypher as _t2c
 from app.kg import templates as _templates
+from app.safety import guardrails as _guard
 
 _GOSSIP = {
     "greet": ["你好,我是智能医疗助手小智,有什么可以帮您?"],
@@ -52,6 +53,8 @@ class Controller:
             ans = self._fast(nlu)
         else:
             ans = self._slow(text)
+        if nlu["kind"] == "diagnosis":
+            ans["answer"] = _guard.apply(ans["answer"], text)
         if self.memory:
             merged_slots = {**state.get("slots", {}),
                             **{k: v for k, v in nlu["slots"].items() if v is not None}}
