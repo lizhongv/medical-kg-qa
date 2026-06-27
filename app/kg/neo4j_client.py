@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class KGClient:
     def __init__(self, settings):
         self.settings = settings
@@ -9,7 +14,8 @@ class KGClient:
                 settings.neo4j_uri,
                 auth=(settings.neo4j_user, settings.neo4j_password),
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("Neo4j unavailable: %s", e)
             self._driver = None
 
     @property

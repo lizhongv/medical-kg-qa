@@ -13,10 +13,10 @@ _WRITE = re.compile(r"\b(CREATE|DELETE|SET|MERGE|REMOVE|DROP)\b", re.I)
 def text_to_cypher(question, llm):
     if not getattr(llm, "available", False):
         return None
-    sys = ("你是 Neo4j 查询生成器。根据图谱 schema 把用户问题转成**只读** Cypher。"
-           "只输出一条 Cypher,不要解释。\nschema:\n" + SCHEMA)
+    system_prompt = ("你是 Neo4j 查询生成器。根据图谱 schema 把用户问题转成**只读** Cypher。"
+                     "只输出一条 Cypher,不要解释。\nschema:\n" + SCHEMA)
     try:
-        resp = llm.chat([{"role": "system", "content": sys},
+        resp = llm.chat([{"role": "system", "content": system_prompt},
                          {"role": "user", "content": question}])
         cql = resp["content"].strip().strip("`").replace("cypher\n", "").strip()
         if not cql or _WRITE.search(cql):

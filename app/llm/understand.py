@@ -6,11 +6,11 @@ import re
 def understand(text, llm, intents):
     if not getattr(llm, "available", False):
         return {"intent": None, "disease": None}
-    sys = ("你是医疗问答的语义解析器。从用户问句中抽取意图和疾病实体。"
-           "意图只能从这个列表里选:" + "、".join(intents) + "。"
-           '只输出 JSON:{"intent": <意图或null>, "disease": <疾病名或null>}')
+    system_prompt = ("你是医疗问答的语义解析器。从用户问句中抽取意图和疾病实体。"
+                     "意图只能从这个列表里选:" + "、".join(intents) + "。"
+                     '只输出 JSON:{"intent": <意图或null>, "disease": <疾病名或null>}')
     try:
-        resp = llm.chat([{"role": "system", "content": sys},
+        resp = llm.chat([{"role": "system", "content": system_prompt},
                          {"role": "user", "content": text}])
         m = re.search(r"\{.*\}", resp["content"], re.S)
         data = json.loads(m.group(0)) if m else {}

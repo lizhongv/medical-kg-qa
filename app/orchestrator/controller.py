@@ -9,7 +9,6 @@ from app.kg import templates
 from app.llm import understand as _understand_mod
 from app.llm.generate import generate as _generate
 from app.kg.text2cypher import text_to_cypher as _t2c
-from app.kg import templates as _templates
 from app.safety import guardrails as _guard
 
 _GOSSIP = {
@@ -85,7 +84,7 @@ class Controller:
         facts = []
         # 有意图+疾病 → 优先模板;否则 text-to-Cypher
         if u["intent"] and u["disease"]:
-            for cql in _templates.render(u["intent"], {"Disease": u["disease"]}):
+            for cql in templates.render(u["intent"], {"Disease": u["disease"]}):
                 facts += _flatten(self.kg.query(cql))
         if not facts:
             cql = _t2c(text, self.llm) if self.llm else None

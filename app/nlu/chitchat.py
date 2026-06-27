@@ -15,9 +15,12 @@ class Chitchat:
         self.vec = self.clf = self.id2label = None
         if model_dir and os.path.exists(os.path.join(model_dir, "vec.pkl")):
             try:
-                self.vec = pickle.load(open(os.path.join(model_dir, "vec.pkl"), "rb"))
-                self.clf = pickle.load(open(os.path.join(model_dir, "LR.pkl"), "rb"))
-                self.id2label = pickle.load(open(os.path.join(model_dir, "id2label.pkl"), "rb"))
+                with open(os.path.join(model_dir, "vec.pkl"), "rb") as f:
+                    self.vec = pickle.load(f)
+                with open(os.path.join(model_dir, "LR.pkl"), "rb") as f:
+                    self.clf = pickle.load(f)
+                with open(os.path.join(model_dir, "id2label.pkl"), "rb") as f:
+                    self.id2label = pickle.load(f)
             except Exception:
                 self.vec = self.clf = self.id2label = None
 

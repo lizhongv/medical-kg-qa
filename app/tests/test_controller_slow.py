@@ -31,3 +31,18 @@ def test_slow_path_end_to_end():
     out = c.handle("高血压有啥不舒服", "u1")
     assert out["path"] == "slow"
     assert "头晕" in out["answer"] or "高血压" in out["answer"]
+
+
+def test_slow_path_llm_none():
+    from app.settings import Settings
+    from app.orchestrator.controller import Controller
+    class NluSlow2:
+        def analyze(self, t):
+            return {"kind": "diagnosis", "intent": None, "confidence": 0.1,
+                    "slots": {"Disease": None}, "matched": False}
+    class KG2:
+        available = True
+        def query(self, c, params=None): return []
+    c = Controller(NluSlow2(), KG2(), Settings(), llm=None)
+    out = c.handle("随便问问", "u_none")
+    assert out["path"] == "slow" and isinstance(out["answer"], str)

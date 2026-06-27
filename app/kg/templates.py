@@ -13,7 +13,13 @@ def render(intent, slots):
         return []
     tpl = info["cql_template"]
     tpls = tpl if isinstance(tpl, list) else [tpl]
-    return [t.format(**slots) for t in tpls]
+    out = []
+    for t in tpls:
+        try:
+            out.append(t.format(**slots))
+        except Exception:
+            pass
+    return out
 
 
 def reply_prefix(intent, slots):

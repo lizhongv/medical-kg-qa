@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT = {"slots": {}, "history": [], "last_intent": None}
 
@@ -14,7 +17,8 @@ class MemoryStore:
                 import redis
                 self._redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
                 self._redis.ping()
-            except Exception:
+            except Exception as e:
+                logger.warning("Redis unavailable, using in-memory: %s", e)
                 self._redis = None
 
     def get(self, session_id):
