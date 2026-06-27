@@ -9,6 +9,7 @@ from app.nlu.intent import IntentModel
 from app.nlu.slot import SlotFiller
 from app.nlu.pipeline import NluPipeline
 from app.orchestrator.controller import Controller
+from app.memory.store import MemoryStore
 import os
 
 app = FastAPI(title="KBQA")
@@ -22,7 +23,8 @@ _chit = Chitchat(os.path.join(_root, "nlu", "sklearn_Classification", "model_fil
 _intent = IntentModel(os.path.join(_root, "nlu", "bert_intent_recognition", "pytorch", "checkpoint"))
 _slot = SlotFiller(_diseases) if os.path.exists(_diseases) else None
 _nlu = NluPipeline(_chit, _intent, _slot) if _slot else None
-_controller = Controller(_nlu, _kg, _settings) if _nlu else None
+_memory = MemoryStore(_settings)
+_controller = Controller(_nlu, _kg, _settings, memory=_memory) if _nlu else None
 
 
 class ChatIn(BaseModel):

@@ -20,20 +20,33 @@ def _flatten(rows):
 
 
 class Controller:
-    def __init__(self, nlu, kg, settings, gossip=None):
+    def __init__(self, nlu, kg, settings, gossip=None, memory=None):
         self.nlu = nlu
         self.kg = kg
         self.settings = settings
         self.gossip = gossip or _GOSSIP
+        self.memory = memory
 
     def handle(self, text, session_id):
+        state = self.memory.get(session_id) if self.memory else {"slots": {}, "last_intent": None}
         nlu = self.nlu.analyze(text)
+        if nlu["kind"] == "diagnosis":
+            # 槽位继承
+            if not nlu["slots"].get("Disease") and state.get("slots", {}).get("Disease"):
+                nlu["slots"]["Disease"] = state["slots"]["Disease"]
+                nlu["matched"] = True
         path = route(nlu, self.settings)
         if path == "chitchat":
-            return {"answer": random.choice(self.gossip.get(nlu["intent"], ["在的"])), "path": "chitchat"}
-        if path == "fast":
-            return self._fast(nlu)
-        return {"answer": "(慢路待接入)", "path": "slow"}
+            ans = {"answer": random.choice(self.gossip.get(nlu["intent"], ["在的"])), "path": "chitchat"}
+        elif path == "fast":
+            ans = self._fast(nlu)
+        else:
+            ans = {"answer": "(慢路待接入)", "path": "slow"}
+        if self.memory:
+            new_state = {"slots": nlu["slots"], "last_intent": nlu.get("intent"),
+                         "history": (state.get("history", []) + [text])[-10:]}
+            self.memory.set(session_id, new_state)
+        return ans
 
     def _fast(self, nlu):
         intent, slots = nlu["intent"], nlu["slots"]
