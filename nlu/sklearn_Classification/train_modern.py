@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+"""
+闲聊意图分类训练(sklearn:字符级 TF-IDF + LR + GBDT 集成)——单文件自包含。
+
+依赖: pip install scikit-learn numpy
+数据: ./data/intent_recog_data.txt(仓库已自带,每行「文本,标签」)
+训练: python train_modern.py
+产物: ./model_file/{vec,LR,gbdt,id2label}.pkl(覆盖旧版,兼容当前 sklearn)
+"""
 import os
 import pickle
 import numpy as np
