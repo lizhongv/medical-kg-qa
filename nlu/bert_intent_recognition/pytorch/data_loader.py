@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 
@@ -38,7 +39,6 @@ def make_collate(tokenizer):
         labels = torch.stack([b["label"] for b in batch])
         maxlen = max(x.size(0) for x in ids)
         pad_id = tokenizer.pad_token_id or 0
-        import torch.nn.functional as F
         ids = torch.stack([F.pad(x, (0, maxlen - x.size(0)), value=pad_id) for x in ids])
         ams = torch.stack([F.pad(x, (0, maxlen - x.size(0)), value=0) for x in ams])
         return ids, ams, labels

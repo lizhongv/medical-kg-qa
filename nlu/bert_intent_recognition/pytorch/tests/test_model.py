@@ -1,5 +1,4 @@
 import torch
-from transformers import BertConfig, BertModel
 from nlu.bert_intent_recognition.pytorch.model import TextCnnHead
 
 
