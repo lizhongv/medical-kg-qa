@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+openai
+neo4j
+redis
+scikit-learn
+pyahocorasick
+pandas
+torch
+transformers
+httpx
+pytest
