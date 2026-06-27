@@ -24,7 +24,7 @@ _intent = IntentModel(os.path.join(_root, "nlu", "bert_intent_recognition", "pyt
 _slot = SlotFiller(_diseases) if os.path.exists(_diseases) else None
 _nlu = NluPipeline(_chit, _intent, _slot) if _slot else None
 _memory = MemoryStore(_settings)
-_controller = Controller(_nlu, _kg, _settings, memory=_memory) if _nlu else None
+_controller = Controller(_nlu, _kg, _settings, memory=_memory, llm=_llm) if _nlu else None
 
 
 class ChatIn(BaseModel):

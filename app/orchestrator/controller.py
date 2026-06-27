@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 import random
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from config import semantic_slot as _semantic_slot
 from app.orchestrator.router import route
 from app.kg import templates
+from app.llm import understand as _understand_mod
+from app.llm.generate import generate as _generate
+from app.kg.text2cypher import text_to_cypher as _t2c
+from app.kg import templates as _templates
 
 _GOSSIP = {
     "greet": ["你好,我是智能医疗助手小智,有什么可以帮您?"],
@@ -20,12 +28,14 @@ def _flatten(rows):
 
 
 class Controller:
-    def __init__(self, nlu, kg, settings, gossip=None, memory=None):
+    def __init__(self, nlu, kg, settings, gossip=None, memory=None, llm=None):
         self.nlu = nlu
         self.kg = kg
         self.settings = settings
         self.gossip = gossip or _GOSSIP
         self.memory = memory
+        self.llm = llm
+        self._intents = [k for k in _semantic_slot.keys() if k != "unrecognized"]
 
     def handle(self, text, session_id):
         state = self.memory.get(session_id) if self.memory else {"slots": {}, "last_intent": None}
@@ -41,7 +51,7 @@ class Controller:
         elif path == "fast":
             ans = self._fast(nlu)
         else:
-            ans = {"answer": "(慢路待接入)", "path": "slow"}
+            ans = self._slow(text)
         if self.memory:
             merged_slots = {**state.get("slots", {}),
                             **{k: v for k, v in nlu["slots"].items() if v is not None}}
@@ -59,3 +69,16 @@ class Controller:
         if not facts:
             return {"answer": "唔~我装满知识的大脑此刻很贫瘠", "path": "fast"}
         return {"answer": templates.reply_prefix(intent, slots) + "、".join(facts), "path": "fast"}
+
+    def _slow(self, text):
+        u = _understand_mod.understand(text, self.llm, self._intents) if self.llm else {"intent": None, "disease": None}
+        facts = []
+        # 有意图+疾病 → 优先模板;否则 text-to-Cypher
+        if u["intent"] and u["disease"]:
+            for cql in _templates.render(u["intent"], {"Disease": u["disease"]}):
+                facts += _flatten(self.kg.query(cql))
+        if not facts:
+            cql = _t2c(text, self.llm) if self.llm else None
+            if cql:
+                facts += _flatten(self.kg.query(cql))
+        return {"answer": _generate(text, facts, self.llm), "path": "slow"}
