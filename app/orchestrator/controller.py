@@ -29,16 +29,21 @@ def _flatten(rows):
 
 
 class Controller:
-    def __init__(self, nlu, kg, settings, gossip=None, memory=None, llm=None):
+    def __init__(self, nlu, kg, settings, gossip=None, memory=None, llm=None, cache=None):
         self.nlu = nlu
         self.kg = kg
         self.settings = settings
         self.gossip = gossip or _GOSSIP
         self.memory = memory
         self.llm = llm
+        self.cache = cache
         self._intents = [k for k in _semantic_slot.keys() if k != "unrecognized"]
 
     def handle(self, text, session_id):
+        if self.cache:
+            hit = self.cache.lookup(text)
+            if hit is not None:
+                return {"answer": hit, "path": "cache"}
         state = self.memory.get(session_id) if self.memory else {"slots": {}, "last_intent": None}
         nlu = self.nlu.analyze(text)
         if nlu["kind"] == "diagnosis":
@@ -55,6 +60,8 @@ class Controller:
             ans = self._slow(text)
         if nlu["kind"] == "diagnosis":
             ans["answer"] = _guard.apply(ans["answer"], text)
+            if self.cache:
+                self.cache.save(text, ans["answer"])
         if self.memory:
             merged_slots = {**state.get("slots", {}),
                             **{k: v for k, v in nlu["slots"].items() if v is not None}}
