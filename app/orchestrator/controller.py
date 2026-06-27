@@ -43,7 +43,10 @@ class Controller:
         else:
             ans = {"answer": "(慢路待接入)", "path": "slow"}
         if self.memory:
-            new_state = {"slots": nlu["slots"], "last_intent": nlu.get("intent"),
+            merged_slots = {**state.get("slots", {}),
+                            **{k: v for k, v in nlu["slots"].items() if v is not None}}
+            new_state = {"slots": merged_slots,
+                         "last_intent": nlu.get("intent") or state.get("last_intent"),
                          "history": (state.get("history", []) + [text])[-10:]}
             self.memory.set(session_id, new_state)
         return ans
