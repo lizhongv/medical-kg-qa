@@ -15,3 +15,12 @@ def test_no_hit(tmp_path):
     p = tmp_path / "d.json"
     p.write_text(json.dumps(["感冒"], ensure_ascii=False), encoding="utf-8")
     assert SlotFiller(str(p)).extract("你好呀") == []
+
+
+def test_standalone_not_dropped(tmp_path):
+    import json
+    p = tmp_path / "d.json"
+    p.write_text(json.dumps(["高血压", "高血压病"], ensure_ascii=False), encoding="utf-8")
+    sf = SlotFiller(str(p))
+    got = sf.extract("高血压患者需注意高血压病的发展")
+    assert "高血压" in got and "高血压病" in got
