@@ -47,8 +47,10 @@ def main():
     vocab = build_vocab(train_sents)
     tag2id = build_tag2id(train_sents)
     os.makedirs(CKPT, exist_ok=True)
-    json.dump(vocab, open(os.path.join(CKPT, "vocab.json"), "w", encoding="utf-8"), ensure_ascii=False)
-    json.dump(tag2id, open(os.path.join(CKPT, "tag2id.json"), "w", encoding="utf-8"), ensure_ascii=False)
+    with open(os.path.join(CKPT, "vocab.json"), "w", encoding="utf-8") as f:
+        json.dump(vocab, f, ensure_ascii=False)
+    with open(os.path.join(CKPT, "tag2id.json"), "w", encoding="utf-8") as f:
+        json.dump(tag2id, f, ensure_ascii=False)
 
     train_ds = NerDataset(train_sents, vocab, tag2id)
     dev_ds = NerDataset(dev_sents, vocab, tag2id)
@@ -71,7 +73,7 @@ def main():
             tot += loss.item()
         acc = evaluate(model, dev_loader, device)
         print(f"epoch {ep+1} loss {tot/len(train_loader):.4f} dev_token_acc {acc:.4f}")
-        if acc >= best:
+        if acc > best:
             best = acc
             torch.save(model.state_dict(), os.path.join(CKPT, "best_ner.pt"))
             print("  saved best_ner.pt")

@@ -51,7 +51,8 @@ def main():
     import pandas as pd
     df = pd.read_csv(os.path.join(DATA, "train.csv"))
     id2name = {int(r.label): str(r.label_class) for r in df.itertuples()}
-    json.dump(id2name, open(os.path.join(CKPT, "label2id.json"), "w", encoding="utf-8"), ensure_ascii=False)
+    with open(os.path.join(CKPT, "label2id.json"), "w", encoding="utf-8") as f:
+        json.dump(id2name, f, ensure_ascii=False)
 
     collate = make_collate(tokenizer)
     tr = DataLoader(IntentDataset(tr_texts, tr_labels, tokenizer), batch_size=args.batch_size,
@@ -76,7 +77,7 @@ def main():
             tot += loss.item()
         acc = evaluate(model, te, device)
         print(f"epoch {ep+1} loss {tot/len(tr):.4f} test_acc {acc:.4f}")
-        if acc >= best:
+        if acc > best:
             best = acc
             torch.save(model.state_dict(), os.path.join(CKPT, "best_model.pt"))
             print("  saved best_model.pt")

@@ -12,7 +12,8 @@ CKPT = os.path.join(HERE, "checkpoint")
 def main():
     base = resolve_base()
     tokenizer = AutoTokenizer.from_pretrained(base)
-    id2name = json.load(open(os.path.join(CKPT, "label2id.json"), encoding="utf-8"))
+    with open(os.path.join(CKPT, "label2id.json"), encoding="utf-8") as f:
+        id2name = json.load(f)
     model = IntentModel(base, num_labels=13)
     model.load_state_dict(torch.load(os.path.join(CKPT, "best_model.pt"), map_location="cpu"))
     model.eval()

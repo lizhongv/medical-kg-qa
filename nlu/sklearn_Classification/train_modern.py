@@ -33,18 +33,22 @@ def train_and_save(data_path, out_dir):
     vec = TfidfVectorizer(token_pattern=r"(?u)\b\w+\b")
     X = vec.fit_transform(texts)
 
-    lr = LogisticRegression(max_iter=1000)
+    lr = LogisticRegression(max_iter=1000, random_state=42)
     lr.fit(X, y)
-    gbdt = GradientBoostingClassifier()
+    gbdt = GradientBoostingClassifier(random_state=42)
     gbdt.fit(X.toarray(), y)
 
     proba = (lr.predict_proba(X) + gbdt.predict_proba(X.toarray())) / 2
     acc = float((proba.argmax(1) == y).mean())
 
-    pickle.dump(vec, open(os.path.join(out_dir, "vec.pkl"), "wb"))
-    pickle.dump(lr, open(os.path.join(out_dir, "LR.pkl"), "wb"))
-    pickle.dump(gbdt, open(os.path.join(out_dir, "gbdt.pkl"), "wb"))
-    pickle.dump(id2label, open(os.path.join(out_dir, "id2label.pkl"), "wb"))
+    with open(os.path.join(out_dir, "vec.pkl"), "wb") as f:
+        pickle.dump(vec, f)
+    with open(os.path.join(out_dir, "LR.pkl"), "wb") as f:
+        pickle.dump(lr, f)
+    with open(os.path.join(out_dir, "gbdt.pkl"), "wb") as f:
+        pickle.dump(gbdt, f)
+    with open(os.path.join(out_dir, "id2label.pkl"), "wb") as f:
+        pickle.dump(id2label, f)
     return {"acc": acc}
 
 

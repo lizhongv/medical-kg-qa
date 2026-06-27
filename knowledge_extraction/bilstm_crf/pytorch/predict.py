@@ -9,8 +9,10 @@ CKPT = os.path.join(HERE, "checkpoint")
 
 
 def load():
-    vocab = json.load(open(os.path.join(CKPT, "vocab.json"), encoding="utf-8"))
-    tag2id = json.load(open(os.path.join(CKPT, "tag2id.json"), encoding="utf-8"))
+    with open(os.path.join(CKPT, "vocab.json"), encoding="utf-8") as f:
+        vocab = json.load(f)
+    with open(os.path.join(CKPT, "tag2id.json"), encoding="utf-8") as f:
+        tag2id = json.load(f)
     id2tag = {v: k for k, v in tag2id.items()}
     model = BiLstmCrf(len(vocab), len(tag2id))
     model.load_state_dict(torch.load(os.path.join(CKPT, "best_ner.pt"), map_location="cpu"))
