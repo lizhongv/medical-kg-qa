@@ -9,6 +9,7 @@
 - **LLM**:OpenAI 兼容接口(已验证 DeepSeek `deepseek-chat`)。
 
 > 原始项目说明见 [`README_original.MD`](./README_original.MD)。
+> 未入库的大文件 / 权重 / 密钥(如何获取与放置)见 [`ASSETS.md`](./ASSETS.md)。
 
 ---
 
