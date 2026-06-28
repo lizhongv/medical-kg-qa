@@ -1,0 +1,1 @@
+{"base": "hfl/chinese-roberta-wwm-ext", "num_labels": 13, "maxlen": 60}

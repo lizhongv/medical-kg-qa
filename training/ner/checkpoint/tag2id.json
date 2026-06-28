@@ -1,0 +1,1 @@
+{"<PAD>": 0, "B_body": 1, "B_crowd": 2, "B_department": 3, "B_disease": 4, "B_drug": 5, "B_feature": 6, "B_physiology": 7, "B_symptom": 8, "B_test": 9, "B_time": 10, "B_treatment": 11, "I_body": 12, "I_crowd": 13, "I_department": 14, "I_disease": 15, "I_drug": 16, "I_feature": 17, "I_physiology": 18, "I_symptom": 19, "I_test": 20, "I_time": 21, "I_treatment": 22, "O": 23}
