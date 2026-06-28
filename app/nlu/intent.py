@@ -17,8 +17,11 @@ class IntentModel:
                 self._torch = torch
                 with open(os.path.join(ckpt_dir, "label2id.json"), encoding="utf-8") as f:
                     self.id2name = json.load(f)
-                self.tokenizer = AutoTokenizer.from_pretrained(base or "hfl/rbt3")
-                self.model = _load_intent_model(base or "hfl/rbt3", weights, len(self.id2name), torch)
+                # 基座必须与训练时一致(层数/结构),否则 load_state_dict 维度不匹配。
+                # 优先用显式 base,否则读训练侧写的 meta.json,再否则回退 hfl/rbt3。
+                resolved_base = base or _read_meta_base(ckpt_dir)
+                self.tokenizer = AutoTokenizer.from_pretrained(resolved_base)
+                self.model = _load_intent_model(resolved_base, weights, len(self.id2name), torch)
                 self.model.eval()
                 self._ok = True
             except Exception:
@@ -38,6 +41,18 @@ class IntentModel:
             prob = torch.softmax(logits, 1)[0]
             idx = int(prob.argmax())
         return {"name": self.id2name[str(idx)], "confidence": float(prob[idx])}
+
+
+def _read_meta_base(ckpt_dir):
+    """从训练侧写的 meta.json 读取基座名;缺失则回退 hfl/rbt3。"""
+    meta = os.path.join(ckpt_dir, "meta.json")
+    if os.path.exists(meta):
+        try:
+            with open(meta, encoding="utf-8") as f:
+                return json.load(f).get("base") or "hfl/rbt3"
+        except Exception:
+            pass
+    return "hfl/rbt3"
 
 
 def _load_intent_model(base, weights, num_labels, torch):

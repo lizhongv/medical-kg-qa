@@ -1,0 +1,12 @@
+# 密钥
+run_service.bat
+
+# 大文件(超 GitHub 限制或可重新获取)
+kg/medical.json
+
+# 缓存 / scratch
+__pycache__/
+*.pyc
+.pytest_cache/
+.superpowers/
+logs/

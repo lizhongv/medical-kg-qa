@@ -1,4 +1,0 @@
-checkpoint/
-__pycache__/
-base_model/*
-!base_model/.gitkeep

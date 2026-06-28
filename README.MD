@@ -1,128 +1,211 @@
-## 基于知识图谱的医疗诊断知识问答系统
+# 基于知识图谱的医疗诊断问答系统(现代化版)
 
-号外，我开通了一个知识星球，在里面我将提供一下服务：
+一个中文医疗领域的 **KBQA(知识库问答)** 系统。用户提问 → 识别意图与疾病实体 → 从 Neo4j 知识图谱查询事实 → 生成接地(grounded)的回答。
 
-- 上传项目里所有涉及到的代码、数据、模型
-- 回答每一个球员的项目相关问题，即使再简单的基础问题
-- 解决你在运行项目代码时的 BUG 问题
-- 一些在学习NLP算法时遇到的一些困恼
-- 校招及初级社招简历中的算法项目的润色指导
-- 后续的NLP基础课程的一切答疑（课程目录大纲在最后）
+本版本已从原始 **TensorFlow1.x / bert4keras / itchat** 老栈,全面现代化为:
 
-<img src="./img/zsxq.jpg" alt="imang" width=250 style="zoom:20%;" />
+- **训练侧**:全部 PyTorch / scikit-learn(摆脱装不上的 TF1.x)。
+- **在线侧**:**「小模型快路 + 云端 LLM 慢路 + Neo4j 事实接地」的级联架构**,对外 REST API。
+- **LLM**:OpenAI 兼容接口(已验证 DeepSeek `deepseek-chat`)。
 
-### 环境
+> 原始项目说明见 [`README_original.MD`](./README_original.MD)。
 
-- python    >= 3.6
-- pyahocorasick==1.4.2
-- requests==2.25.1
-- gevent==1.4.0
-- jieba==0.42.1
-- six==1.15.0
-- gensim==3.8.3
-- matplotlib==3.1.3
-- Flask==1.1.1
-- numpy==1.16.0
-- bert4keras==0.9.1
-- tensorflow==1.14.0
-- Keras==2.3.1
-- py2neo==2020.1.1
-- tqdm==4.42.1
-- pandas==1.0.1
-- termcolor==1.1.0
-- itchat==1.3.10
-- ahocorasick==0.9
-- flask_compress==1.9.0
-- flask_cors==3.0.10
-- flask_json==0.3.4
-- GPUtil==1.4.0
-- pyzmq==22.0.3
-- scikit_learn==0.24.1
+---
 
-### 效果展示
-
-为能最简化使用该系统，不需要繁杂的部署各种七七八八的东西，当前版本使用的itchat将问答功能集成到微信做演示，这需要你的微信能登入网页微信才能使用itchat；另外对话上下文并没有使用Redis之类的数据库实时存储到内存里，而是使用json文件的存、读进行的。
-
-能够回答哪些疾病相关知识，可以参考[这个疾病实体字典里的疾病](https://github.com/wangle1218/KBQA-for-Diagnosis/blob/main/knowledge_extraction/bilstm_crf/checkpoint/diseases.json)；另外目前并没有实现实体链指的功能（因为没有相关的开源数据集），因此现在只支持“疾病”实体的完整、准确输入的解析。
-
-<img src="./img/微信图片_20210604135937.jpg" alt="imang" style="zoom:50%;" />
-
-<img src="./img/微信图片_20210604135949.jpg" alt="imang" style="zoom:50%;" />
-
-<img src="./img/微信图片_20210604135943.jpg" alt="imang" style="zoom:50%;" />
-
-[完整演示视频](https://www.bilibili.com/video/BV1Np4y1471Z/)
-
-### 如何运行demo代码
-
-0. **下载意图识别模型文件**
-
-由于该模型是使用bert训练的，比较大，因此我上传到百度网盘了，有需要的可以自己去下载，然后将其放到目录`KBQA-for-Diagnosis\nlu\bert_intent_recognition\checkpoint`下。
-
-**下载地址**
-
-链接：https://pan.baidu.com/s/1HYB3RwfDs_JcreuEYH51Tw 
-提取码：b3cd 
-复制这段内容后打开百度网盘手机App，操作更方便哦
-
-**下载roberta预训练模型**
-[从哈工大官方github下载，点这里](https://github.com/ymcui/Chinese-BERT-wwm#%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B%E4%B8%8B%E8%BD%BD)，下载RBT3,Chinese 版本（貌似是这个，反正是一个三层的简单版）；[或者直接点这里用讯飞云下载](http://pan.iflytek.com/#/link/275E5B46185C982D4AF5AC295E1651B6)
-
-下载好后解压放在项目路径下，然后在bert意图识别文件夹的 `app.py`代码里改一下预训练模型的路径。
-
-1. **启动neo4j**
-
-打开cmd ，进入安装目录，输入`neo4j.bat console`就行；如果是Linux系统，你可以输入`./neo4j start`后台启动
+## 一、整体架构
 
 ```
-C:\Users\wangle>d:
+                          用户问句 (REST: POST /chat)
+                                   │
+                                   ▼
+                   ┌──────────────────────────────────┐
+                   │  对话编排器 Controller            │
+                   │  (语义缓存 → NLU → 路由 → 取事实    │
+                   │   → 生成 → 安全护栏 → 落上下文)     │
+                   └───────────────┬──────────────────┘
+                                   ▼
+          ┌────────────────────────────────────────────────┐
+          │  快速 NLU(本地小模型,~10–50ms,不调 LLM)       │
+          │  闲聊分类(sklearn) · 意图(BERT,test_acc 0.89) │
+          │  疾病槽位(AC自动机词典) · 实体归一化            │
+          └───────────────┬────────────────────────────────┘
+                          ▼  置信度路由
+            ┌─────────────┴──────────────┐
+        高置信&命中(快路)               低置信/未命中/复杂(慢路)
+            ▼                                   ▼
+   意图→参数化 Cypher                  LLM 理解意图+实体(understand)
+   查 Neo4j → 模板回复                 → LLM text-to-Cypher / 模板
+                                       → 查 Neo4j → LLM 基于事实生成
+            └─────────────┬──────────────┘
+                          ▼
+              医疗安全护栏(免责声明 / 拒诊断处方 / PII 脱敏)
+                          ▼
+                     返回用户(可流式)
 
-D:\>cd D:\neo4j-chs-community-4.2.2-windows\bin
-
-D:\neo4j-chs-community-4.2.2-windows\bin>neo4j.bat console
-Java HotSpot(TM) 64-Bit Server VM warning: Option UseBiasedLocking was deprecated in version 15.0 and will likely be removed in a future release.
-2021-05-30 03:27:00.749+0000 INFO  Starting...
-2021-05-30 03:27:02.126+0000 INFO  ======== Neo4j 4.2.2 ========
-2021-05-30 03:27:03.404+0000 INFO  Performing postInitialization step for component 'security-users' with version 2 and status CURRENT
-2021-05-30 03:27:03.405+0000 INFO  Updating the initial password in component 'security-users'
-2021-05-30 03:27:03.617+0000 INFO  Bolt enabled on localhost:7687.
-2021-05-30 03:27:04.194+0000 INFO  Remote interface available at http://localhost:7474/
-2021-05-30 03:27:04.194+0000 INFO  Started.
+  事实来源: Neo4j 知识图谱(8808 疾病 + 症状/药品/检查/科室/食物关系)
+  多轮记忆: Redis(可降级为进程内内存),支持槽位继承
 ```
 
-2. **启动意图识别和槽位填充服务**
+**核心思想**:意图模型只在置信度高时走快路(快、省、确定);模糊问题落到 LLM 慢路兜底;**所有答案以 Neo4j 为唯一事实来源,防止 LLM 幻觉**。缺任一外部依赖(Neo4j/Redis/LLM/权重)时**优雅降级**而非崩溃。
 
-依次双击`run_intent_recog_service.bat` 和 `run_ner_service.bat` 两个 bat 文件，打开后不要关闭；如果你是Linux系统，请将其改成 shell 脚本 然后运行。
+---
 
-3. **启动itchat**
+## 二、技术栈
 
-打开一个新的cmd，进入项目文件夹路劲，输入：
+| 层面 | 技术 |
+|---|---|
+| 在线服务 | FastAPI + uvicorn,REST API |
+| 意图识别 | BERT(`hfl/chinese-roberta-wwm-ext`)+ TextCNN(PyTorch) |
+| 命名实体/槽位 | AC 自动机疾病词典(pyahocorasick)+ BiLSTM-CRF(PyTorch,备选) |
+| 闲聊分类 | TF-IDF + LogisticRegression + GBDT(scikit-learn) |
+| 大模型 | OpenAI 兼容客户端(DeepSeek / 任意兼容端点) |
+| 知识图谱 | Neo4j(官方 `neo4j` 驱动) |
+| 多轮记忆 | Redis(可降级内存) |
+
+---
+
+## 三、目录结构
 
 ```
-python itchat_app.py
+.
+├── app/                      在线服务(REST API)
+│   ├── api/main.py             FastAPI:POST /chat、GET /health
+│   ├── orchestrator/           controller.py(编排) + router.py(置信度路由)
+│   ├── nlu/                    快速 NLU:chitchat/intent/slot/normalize/pipeline
+│   ├── kg/                     neo4j_client / templates(意图→Cypher) / text2cypher
+│   ├── llm/                    client / understand / generate
+│   ├── memory/store.py         会话状态(Redis + 内存降级,槽位继承)
+│   ├── safety/guardrails.py    医疗安全护栏
+│   ├── cache/semantic_cache.py 语义缓存
+│   └── settings.py             统一配置(读环境变量)
+│
+├── config.py                 13类意图 → Cypher模板 + 回复模板(app 复用)
+│
+├── training/                 ⭐ 模型训练(每个模型:脚本+data+checkpoint 同目录)
+│   ├── intent/                意图(BERT+TextCNN)
+│   │   ├── train.py            训练脚本
+│   │   ├── gen_data.py         合成数据生成(模板 + 可选 LLM 改写)
+│   │   ├── data/               train.csv/test.csv + 清洗后 train_cleanLLM.csv/test_cleanLLM.csv
+│   │   ├── checkpoint/         best_model.pt / label2id.json / meta.json
+│   │   ├── requirements.txt / README.md   (基座默认 Hub 下载;离线可手动建 base_model/)
+│   ├── ner/                   NER(BiLSTM-CRF)
+│   │   ├── train.py
+│   │   ├── data/               cMedQANER(首次训练自动下载)
+│   │   ├── checkpoint/         best_ner.pt / vocab.json / tag2id.json
+│   │   └── requirements.txt / README.md
+│   └── chitchat/              闲聊(sklearn)
+│       ├── train.py
+│       ├── data/               intent_recog_data.txt
+│       ├── model/              vec/LR/gbdt/id2label.pkl
+│       └── README.md
+│
+├── kg/                       知识图谱
+│   ├── import_kg.py            导入 Neo4j(官方驱动,免 py2neo)
+│   ├── medical.json            源数据(8808 疾病,~47MB,不入库)
+│   └── diseases.json           疾病词典(app 槽位用)
+│
+├── run_service.bat           启动服务(含 LLM/Neo4j 配置;gitignore,含密钥勿提交)
+├── test_chat.py              命令行测试 /chat
+├── requirements.txt          在线服务依赖
+├── README.MD / README_original.MD
+└── docs/                     设计 spec + 实现计划
 ```
 
-之后微信扫描二维码就可以在微信里做问答了。
+---
 
-<img src="./img/itchat登入.jpg" alt="imang" style="zoom:60%;" />
+## 四、快速开始(部署运行)
 
-提示以下信息表明登入成功，如果报错，说明你的微信不能登入网页微信，可以换一个注册时间有7/8年的微信试试
+### 前置
+- Python 3.10+,Java 17(Neo4j 需要)
+- `pip install -r requirements.txt`
 
+### 第 1 步:启动 Neo4j
+下载 Neo4j Community,设密码并启动:
+```cmd
+<neo4j>\bin\neo4j-admin dbms set-initial-password 12345678
+<neo4j>\bin\neo4j console
 ```
-Login successfully as 你的微信账号
-Start auto replying.
+浏览器 http://localhost:7474 能登录即成功。
+
+### 第 2 步:导入知识图谱
+```bash
+cd kg
+# PowerShell 设密码: $env:KBQA_NEO4J_PASSWORD="12345678"
+python import_kg.py        # 8808 疾病 + 症状/药品/科室/检查/食物关系
 ```
 
-### 后期计划
+### 第 3 步:配置并启动服务
+编辑 `run_service.bat` 填入 LLM key / Neo4j 密码,然后:
+```cmd
+run_service.bat            :: 起 uvicorn,端口 8000
+```
+关键环境变量(`app/settings.py` 读取):
+| 变量 | 说明 |
+|---|---|
+| `KBQA_LLM_API_KEY` | LLM 密钥(如 DeepSeek) |
+| `KBQA_LLM_BASE_URL` | 如 `https://api.deepseek.com` |
+| `KBQA_LLM_MODEL` | 如 `deepseek-chat` |
+| `KBQA_NEO4J_URI/USER/PASSWORD` | Neo4j 连接 |
+| `KBQA_REDIS_URL` | 可选,不设则用内存 |
 
-系列视频持续更新中……，~~后期代码也将一并上传~~（第一版demo已全部上传）
+### 第 4 步:测试
+```bash
+python test_chat.py                    # 跑一组示例问题
+python test_chat.py "高血压怎么治"     # 单问
+# 或浏览器交互页: http://localhost:8000/docs
+```
+预期:`你好`→闲聊;医疗问句→`fast`(意图命中)或`slow`(LLM兜底),答案来自 Neo4j + 免责声明。
 
-当前实现的是最小演示版本，后期会加上Redis、elasticsearch、tf-serving等技术栈，如果有前端配合的话也可以将问答服务发布成后端接口，这样就可以做工程化部署了。
+---
 
-[点击这里观看视频](https://www.bilibili.com/video/BV1ev4y1o7zj/)
+## 五、模型训练(三个,互相独立)
 
-本项目系列视频大纲如下，最后可能会有细微差别，影响不大
+> 训练在有 GPU、可联网拉基座的机器上进行。产物落各自 `checkpoint/` / `model/`,在线服务自动加载。
 
-<img src="./img/4.png" alt="imang" style="zoom:30%;" />
+### ① 意图识别(BERT + TextCNN)
+```bash
+cd training/intent
+pip install -r requirements.txt
+python train.py --train_file data/train_cleanLLM.csv \
+                --test_file  data/test_cleanLLM.csv --class_weight
+# 产物: checkpoint/best_model.pt, label2id.json, meta.json
+```
+- 默认基座 `hfl/chinese-roberta-wwm-ext`(12层);`--base hfl/rbt3` 可换 3 层小模型。
+- `meta.json` 记录基座,推理侧据此对齐结构加载。
+- **数据质量是关键**:原始标注约 40% 有误,经 **LLM 逐条清洗**后 test_acc 从 0.68 → **0.89**。`gen_data.py` 可生成模板合成数据辅助。
 
-<img src="./img/5.png" alt="imang" style="zoom:30%;" />
+### ② NER(BiLSTM-CRF,字符级)
+```bash
+cd training/ner
+pip install -r requirements.txt        # torch + pytorch-crf
+python train.py                        # 首次自动下载 cMedQANER(公开基准,免清洗)
+# 产物: checkpoint/best_ner.pt, vocab.json, tag2id.json
+```
+> 在线服务的疾病槽位实际走 **AC自动机词典**(`kg/diseases.json`),稳定可靠;BiLSTM-CRF 为备选增强。
+
+### ③ 闲聊分类(sklearn)
+```bash
+cd training/chitchat
+python train.py                        # 几秒;产物 model/*.pkl
+```
+
+---
+
+## 六、API
+
+| 端点 | 说明 |
+|---|---|
+| `GET /health` | 依赖状态:`{"status":"ok","deps":{"neo4j":bool,"llm":bool}}` |
+| `POST /chat` | 入参 `{"text": "...", "session_id": "..."}`;出参 `{"answer": "...", "path": "chitchat\|fast\|slow\|cache"}` |
+
+---
+
+## 七、13 类意图
+
+定义、病因、预防、临床表现(病症表现)、相关病症、治疗方法、所属科室、传染性、治愈率、禁忌、化验/体检方案、治疗时间、其他。
+每类映射到 `config.py:semantic_slot` 的 Cypher 模板与回复模板。
+
+---
+
+## 八、开发文档
+设计与实现过程见 `docs/superpowers/specs/` 与 `docs/superpowers/plans/`。

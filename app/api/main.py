@@ -18,9 +18,9 @@ _kg = KGClient(_settings)
 _llm = LLMClient(_settings)
 
 _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_diseases = os.path.join(_root, "knowledge_extraction", "bilstm_crf", "checkpoint", "diseases.json")
-_chit = Chitchat(os.path.join(_root, "nlu", "sklearn_Classification", "model_file"))
-_intent = IntentModel(os.path.join(_root, "nlu", "bert_intent_recognition", "pytorch", "checkpoint"))
+_diseases = os.path.join(_root, "kg", "diseases.json")
+_chit = Chitchat(os.path.join(_root, "training", "chitchat", "model"))
+_intent = IntentModel(os.path.join(_root, "training", "intent", "checkpoint"))
 _slot = SlotFiller(_diseases) if os.path.exists(_diseases) else None
 _nlu = NluPipeline(_chit, _intent, _slot) if _slot else None
 _memory = MemoryStore(_settings)
